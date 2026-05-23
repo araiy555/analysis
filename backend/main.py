@@ -1,3 +1,5 @@
+import asyncio
+import json
 import os
 import sys
 import tempfile
@@ -6,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -37,6 +39,30 @@ class ProxyStartRequest(BaseModel):
     ssl_intercept: bool = True
 
 
+class InterceptResolveRequest(BaseModel):
+    action: str  # "forward" | "drop"
+    modified: dict | None = None  # optional modified request fields
+
+
+class ProxyRuleRequest(BaseModel):
+    name: str = ""
+    phase: str = "both"       # "request" | "response" | "both"
+    target: str = "body"      # "body" | "header" | "url"
+    header_name: str = ""
+    match: str = ""
+    replace: str = ""
+    enabled: bool = True
+
+
+class RepeatRequest(BaseModel):
+    method: str
+    host: str
+    path: str
+    is_https: bool = False
+    request_headers: dict = {}
+    request_body: str = ""
+
+
 class AttachRequest(BaseModel):
     pid: int
 
@@ -44,6 +70,7 @@ class AttachRequest(BaseModel):
 class RunScriptRequest(BaseModel):
     pid: int
     script: str
+    timeout: int = 30
 
 
 class AIAnalyzeRequest(BaseModel):
@@ -204,19 +231,11 @@ async def ghidra_analyze_upload(file: UploadFile = File(...)):
 
 # ── Network Proxy ──────────────────────────────────────────────────────────────
 
-@app.post("/proxy/internal/traffic")
-async def proxy_internal_traffic(entry: dict):
-    """Internal endpoint: mitmproxy addon calls this to record traffic."""
-    from network.proxy_manager import add_traffic_entry
-    add_traffic_entry(entry)
-    return {"ok": True}
-
-
 @app.post("/proxy/start")
 async def proxy_start(req: ProxyStartRequest):
     try:
-        from network.proxy_manager import start_proxy
-        start_proxy(req.host, req.port, req.ssl_intercept)
+        from network import proxy_manager as pm
+        await pm.start_proxy(req.host, req.port, req.ssl_intercept)
         return {"status": "started", "host": req.host, "port": req.port}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -225,8 +244,8 @@ async def proxy_start(req: ProxyStartRequest):
 @app.post("/proxy/stop")
 async def proxy_stop():
     try:
-        from network.proxy_manager import stop_proxy
-        stop_proxy()
+        from network import proxy_manager as pm
+        await pm.stop_proxy()
         return {"status": "stopped"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -234,11 +253,98 @@ async def proxy_stop():
 
 @app.get("/proxy/traffic")
 async def proxy_traffic():
+    from network import proxy_manager as pm
+    return pm.get_traffic()
+
+
+@app.get("/proxy/traffic/{flow_id}")
+async def proxy_traffic_detail(flow_id: str):
+    from network import proxy_manager as pm
+    for t in pm.get_traffic():
+        if t.get("id") == flow_id:
+            return t
+    raise HTTPException(status_code=404, detail="flow not found")
+
+
+@app.get("/proxy/intercept/queue")
+async def proxy_intercept_queue():
+    from network import proxy_manager as pm
+    return pm.get_intercept_queue()
+
+
+@app.post("/proxy/intercept/mode")
+async def proxy_intercept_mode(body: dict):
+    from network import proxy_manager as pm
+    pm.set_intercept(body.get("enabled", False), body.get("filter", ""))
+    return {"ok": True}
+
+
+@app.post("/proxy/intercept/{flow_id}")
+async def proxy_intercept_resolve(flow_id: str, req: InterceptResolveRequest):
+    from network import proxy_manager as pm
+    ok = pm.resolve_intercept(flow_id, req.action, req.modified)
+    if not ok:
+        raise HTTPException(status_code=404, detail="flow not found or already resolved")
+    return {"ok": True}
+
+
+@app.get("/proxy/rules")
+async def proxy_rules_list():
+    from network import proxy_manager as pm
+    return pm.get_rules()
+
+
+@app.post("/proxy/rules")
+async def proxy_rules_add(rule: ProxyRuleRequest):
+    from network import proxy_manager as pm
+    return pm.add_rule(rule.model_dump())
+
+
+@app.delete("/proxy/rules/{rule_id}")
+async def proxy_rules_delete(rule_id: str):
+    from network import proxy_manager as pm
+    if not pm.delete_rule(rule_id):
+        raise HTTPException(status_code=404, detail="rule not found")
+    return {"ok": True}
+
+
+@app.post("/proxy/rules/{rule_id}/toggle")
+async def proxy_rules_toggle(rule_id: str):
+    from network import proxy_manager as pm
+    if not pm.toggle_rule(rule_id):
+        raise HTTPException(status_code=404, detail="rule not found")
+    return {"ok": True}
+
+
+@app.post("/proxy/repeat")
+async def proxy_repeat(req: RepeatRequest):
+    from network import proxy_manager as pm
+    return await pm.repeat_request(req.model_dump())
+
+
+@app.get("/proxy/ca-cert")
+async def proxy_ca_cert():
+    from network import proxy_manager as pm
+    cert = pm.get_ca_cert()
+    if not cert:
+        raise HTTPException(status_code=503, detail="CA cert not available")
+    from fastapi.responses import Response
+    return Response(content=cert, media_type="application/x-pem-file",
+                    headers={"Content-Disposition": "attachment; filename=appsleuth-ca.pem"})
+
+
+@app.websocket("/ws/proxy")
+async def proxy_ws(ws: WebSocket):
+    await ws.accept()
+    from network import proxy_manager as pm
+    pm.register_ws(ws)
     try:
-        from network.proxy_manager import get_traffic
-        return get_traffic()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        while True:
+            await ws.receive_text()  # keep alive
+    except WebSocketDisconnect:
+        pass
+    finally:
+        pm.unregister_ws(ws)
 
 
 # ── Memory / Frida ─────────────────────────────────────────────────────────────
@@ -265,11 +371,43 @@ async def memory_attach(req: AttachRequest):
 @app.post("/memory/run-script")
 async def memory_run_script(req: RunScriptRequest):
     try:
+        import asyncio
         from memory.frida_client import run_script
-        output = run_script(req.pid, req.script)
+        loop = asyncio.get_event_loop()
+        output = await loop.run_in_executor(
+            None, lambda: run_script(req.pid, req.script, req.timeout)
+        )
         return {"status": "ok", "output": output}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.websocket("/ws/frida/{pid}")
+async def frida_ws(ws: WebSocket, pid: int):
+    await ws.accept()
+    try:
+        # Wait for script code from client
+        data = await asyncio.wait_for(ws.receive_text(), timeout=30)
+        msg = json.loads(data)
+        script_code = msg.get("script", "")
+        timeout = msg.get("timeout", 60)
+        if not script_code:
+            await ws.send_text(json.dumps({"type": "error", "line": "スクリプトが空です"}))
+            return
+        from memory.frida_client import run_script_streaming
+        await run_script_streaming(pid, script_code, ws, timeout)
+    except WebSocketDisconnect:
+        pass
+    except asyncio.TimeoutError:
+        try:
+            await ws.send_text(json.dumps({"type": "error", "line": "タイムアウト: スクリプトの受信を待機中"}))
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            await ws.send_text(json.dumps({"type": "error", "line": f"[ERROR] {e}"}))
+        except Exception:
+            pass
 
 
 # ── AI Analysis ────────────────────────────────────────────────────────────────
