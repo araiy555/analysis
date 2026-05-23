@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import axios from 'axios'
-import { Brain, Send, Key, ChevronDown, Copy, Loader, Trash2, AlertTriangle } from 'lucide-react'
+import { Brain, Send, Key, ChevronDown, Copy, Loader, Trash2, AlertTriangle, Code2 } from 'lucide-react'
 
 const API_BASE = 'http://localhost:8765'
 
@@ -99,8 +99,22 @@ export default function AIAnalysis() {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [ghidraSource, setGhidraSource] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Pick up prefill from Ghidra Analysis page
+  useEffect(() => {
+    const prefill = sessionStorage.getItem('ai_prefill')
+    const type = sessionStorage.getItem('ai_type') as AnalysisType | null
+    if (prefill) {
+      setInput(prefill)
+      setGhidraSource(true)
+      if (type) setAnalysisType(type)
+      sessionStorage.removeItem('ai_prefill')
+      sessionStorage.removeItem('ai_type')
+    }
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -175,6 +189,15 @@ export default function AIAnalysis() {
           会話をクリア
         </button>
       </div>
+
+      {/* Ghidra source banner */}
+      {ghidraSource && (
+        <div className="flex items-center gap-2 px-6 py-2 bg-cyan-900/20 border-b border-cyan-700/30 flex-shrink-0 text-xs text-cyan-400">
+          <Code2 size={12} />
+          Ghidra 逆コンパイル結果が読み込まれました。送信して解析を開始してください。
+          <button onClick={() => setGhidraSource(false)} className="ml-auto text-cyan-600 hover:text-cyan-400">✕</button>
+        </div>
+      )}
 
       {/* API Key + Type selector */}
       <div className="flex items-center gap-3 px-6 py-3 bg-[#161b22] border-b border-[#30363d] flex-shrink-0">

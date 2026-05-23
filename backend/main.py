@@ -164,6 +164,44 @@ def _find_secrets(strings: list[str]) -> list[dict]:
     return found
 
 
+# ── Ghidra Decompiler ─────────────────────────────────────────────────────────
+
+class GhidraAnalyzeRequest(BaseModel):
+    file_path: str
+    timeout: int = 300
+
+
+@app.get("/ghidra/status")
+async def ghidra_status():
+    from analyzers.ghidra_analyzer import get_ghidra_status
+    return get_ghidra_status()
+
+
+@app.post("/ghidra/analyze")
+async def ghidra_analyze(req: GhidraAnalyzeRequest):
+    if not os.path.isfile(req.file_path):
+        raise HTTPException(status_code=400, detail="ファイルが見つかりません")
+    from analyzers.ghidra_analyzer import run_ghidra_analysis
+    return run_ghidra_analysis(req.file_path, timeout=req.timeout)
+
+
+@app.post("/ghidra/analyze-upload")
+async def ghidra_analyze_upload(file: UploadFile = File(...)):
+    suffix = Path(file.filename or "upload").suffix.lower()
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+    try:
+        from analyzers.ghidra_analyzer import run_ghidra_analysis
+        result = run_ghidra_analysis(tmp_path, timeout=300)
+        result["file_name"] = file.filename
+        result["file_size"] = len(content)
+        return result
+    finally:
+        os.unlink(tmp_path)
+
+
 # ── Network Proxy ──────────────────────────────────────────────────────────────
 
 @app.post("/proxy/internal/traffic")

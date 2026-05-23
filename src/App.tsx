@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, FileSearch, Globe, Cpu, Brain, FileText,
-  Settings, Shield, ChevronRight, Circle, Wifi, WifiOff
+  Settings, Shield, ChevronRight, Circle, Code2
 } from 'lucide-react'
 import Dashboard from './components/Dashboard'
 import StaticAnalysis from './components/StaticAnalysis'
 import NetworkAnalysis from './components/NetworkAnalysis'
 import MemoryAnalysis from './components/MemoryAnalysis'
 import AIAnalysis from './components/AIAnalysis'
+import GhidraAnalysis from './components/GhidraAnalysis'
 import ReportView from './components/ReportView'
 import SettingsPage from './components/Settings'
 import axios from 'axios'
@@ -18,6 +19,7 @@ const API_BASE = 'http://localhost:8765'
 const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'ダッシュボード', exact: true },
   { path: '/static', icon: FileSearch, label: '静的解析' },
+  { path: '/ghidra', icon: Code2, label: 'Ghidra 逆コンパイル' },
   { path: '/network', icon: Globe, label: 'ネットワーク解析' },
   { path: '/memory', icon: Cpu, label: 'メモリ解析' },
   { path: '/ai', icon: Brain, label: 'AI解析' },
@@ -136,6 +138,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard backendStatus={backendStatus} />} />
           <Route path="/static" element={<StaticAnalysis />} />
+          <Route path="/ghidra" element={<GhidraAnalysis />} />
           <Route path="/network" element={<NetworkAnalysis />} />
           <Route path="/memory" element={<MemoryAnalysis />} />
           <Route path="/ai" element={<AIAnalysis />} />

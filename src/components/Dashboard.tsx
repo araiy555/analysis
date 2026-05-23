@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileSearch, Globe, Cpu, Brain, TrendingUp, AlertTriangle,
-  CheckCircle, Clock, Shield, Zap, Package, Activity
+  CheckCircle, Clock, Shield, Zap, Package, Activity, Code2
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -28,6 +28,14 @@ const quickActions = [
     path: '/network',
     color: 'text-green-400',
     bg: 'bg-green-500/10 border-green-500/20',
+  },
+  {
+    icon: Code2,
+    label: 'Ghidra 逆コンパイル + AI',
+    desc: 'Ghidra でデコンパイル → Claude で自動解説',
+    path: '/ghidra',
+    color: 'text-cyan-400',
+    bg: 'bg-cyan-500/10 border-cyan-500/20',
   },
   {
     icon: Cpu,
@@ -106,7 +114,7 @@ export default function Dashboard({ backendStatus }: DashboardProps) {
       {/* Quick Actions */}
       <div>
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">クイックスタート</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
           {quickActions.map((action) => (
             <button
               key={action.path}
