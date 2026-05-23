@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+*.pyc
+__pycache__/
+backend/__pycache__/
+backend/**/__pycache__/
+*.egg-info/
+.venv/
+venv/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+release/
+out/
+backend/_mitm_addon.py
