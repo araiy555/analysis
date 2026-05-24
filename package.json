@@ -49,8 +49,9 @@
     ],
     "extraResources": [
       {
-        "from": "backend",
-        "to": "backend"
+        "from": "resources/bin",
+        "to": "bin",
+        "filter": ["**/*"]
       }
     ],
     "win": {

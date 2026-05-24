@@ -15,3 +15,7 @@ Thumbs.db
 release/
 out/
 backend/_mitm_addon.py
+resources/bin/appsleuth-backend
+resources/bin/appsleuth-backend.exe
+backend/build/
+backend/dist/
