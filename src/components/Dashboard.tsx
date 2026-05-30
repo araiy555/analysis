@@ -5,6 +5,7 @@ import {
   CheckCircle, Clock, Shield, Zap, Package, Activity, Code2
 } from 'lucide-react'
 import axios from 'axios'
+import StockChat from './StockChat'
 
 const API_BASE = 'http://localhost:8765'
 
@@ -162,6 +163,9 @@ export default function Dashboard({ backendStatus }: DashboardProps) {
           </div>
         </div>
       )}
+
+      {/* Stock Chat */}
+      <StockChat />
 
       {/* Feature highlights */}
       <div>

@@ -80,6 +80,15 @@ class AIAnalyzeRequest(BaseModel):
     history: list[dict] = []
 
 
+class StockChatRequest(BaseModel):
+    question: str
+    claude_api_key: str
+    aws_access_key: str
+    aws_secret_key: str
+    aws_region: str = "ap-northeast-1"
+    history: list[dict] = []
+
+
 class ReportRequest(BaseModel):
     history: list[dict]
 
@@ -423,6 +432,55 @@ async def ai_analyze(req: AIAnalyzeRequest):
             history=req.history,
         )
         return {"result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Stock Chat ─────────────────────────────────────────────────────────────────
+
+STOCK_SYSTEM_PROMPT = """あなたは優秀な株式投資アナリストです。
+S3に保存された実際の株式データ・財務データ・スクリーニング結果を元に、ユーザーの質問に答えてください。
+
+回答の際のルール：
+- 提供されたデータに基づいて具体的に回答してください
+- データがない項目については「データなし」と明記してください
+- 投資判断はユーザー自身が行うものとし、参考情報として提供してください
+- 数値データは具体的に引用してください
+- 日本語で、わかりやすく回答してください
+- Markdownで整形してください"""
+
+
+@app.post("/stock/chat")
+async def stock_chat(req: StockChatRequest):
+    try:
+        import anthropic
+        from stock.s3_fetcher import fetch_relevant_data
+
+        # Fetch relevant S3 data
+        s3_data = fetch_relevant_data(
+            question=req.question,
+            aws_access_key=req.aws_access_key,
+            aws_secret_key=req.aws_secret_key,
+            aws_region=req.aws_region,
+        )
+
+        # Build messages
+        messages: list[dict] = []
+        for msg in req.history[-10:]:
+            if msg.get("role") in ("user", "assistant") and msg.get("content"):
+                messages.append({"role": msg["role"], "content": msg["content"]})
+
+        user_content = f"【S3データ】\n{s3_data}\n\n【質問】\n{req.question}"
+        messages.append({"role": "user", "content": user_content})
+
+        client = anthropic.Anthropic(api_key=req.claude_api_key)
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=4096,
+            system=STOCK_SYSTEM_PROMPT,
+            messages=messages,
+        )
+        return {"result": response.content[0].text if response.content else "応答が空でした。"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

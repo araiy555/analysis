@@ -1,8 +1,11 @@
 import React, { useState } from 'react'
-import { Settings, Key, Globe, Cpu, Save, CheckCircle } from 'lucide-react'
+import { Settings, Key, Globe, Cpu, Save, CheckCircle, Cloud } from 'lucide-react'
 
 export default function SettingsPage() {
   const [claudeKey, setClaudeKey] = useState(() => localStorage.getItem('claude_api_key') || '')
+  const [awsAccessKey, setAwsAccessKey] = useState(() => localStorage.getItem('aws_access_key') || '')
+  const [awsSecretKey, setAwsSecretKey] = useState(() => localStorage.getItem('aws_secret_key') || '')
+  const [awsRegion, setAwsRegion] = useState(() => localStorage.getItem('aws_region') || 'ap-northeast-1')
   const [proxyHost, setProxyHost] = useState(() => localStorage.getItem('proxy_host') || '127.0.0.1')
   const [proxyPort, setProxyPort] = useState(() => localStorage.getItem('proxy_port') || '8080')
   const [fridaHost, setFridaHost] = useState(() => localStorage.getItem('frida_host') || 'localhost')
@@ -13,6 +16,9 @@ export default function SettingsPage() {
 
   const saveSettings = () => {
     localStorage.setItem('claude_api_key', claudeKey)
+    localStorage.setItem('aws_access_key', awsAccessKey)
+    localStorage.setItem('aws_secret_key', awsSecretKey)
+    localStorage.setItem('aws_region', awsRegion)
     localStorage.setItem('proxy_host', proxyHost)
     localStorage.setItem('proxy_port', proxyPort)
     localStorage.setItem('frida_host', fridaHost)
@@ -50,6 +56,47 @@ export default function SettingsPage() {
               Anthropic Console (<a href="#" className="text-blue-400 hover:underline">console.anthropic.com</a>) から取得
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* AWS */}
+      <div className="bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#30363d] flex items-center gap-2">
+          <Cloud size={14} className="text-yellow-400" />
+          <span className="text-sm font-semibold text-gray-200">AWS 設定（株チャット用）</span>
+        </div>
+        <div className="p-4 space-y-3">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1.5">AWS Access Key ID</label>
+            <input
+              type="password"
+              value={awsAccessKey}
+              onChange={(e) => setAwsAccessKey(e.target.value)}
+              placeholder="AKIA..."
+              className="w-full px-3 py-2 bg-[#21262d] border border-[#30363d] rounded text-sm text-gray-200 placeholder-gray-600 outline-none focus:border-yellow-500/50 font-mono"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1.5">AWS Secret Access Key</label>
+            <input
+              type="password"
+              value={awsSecretKey}
+              onChange={(e) => setAwsSecretKey(e.target.value)}
+              placeholder="シークレットキーを入力"
+              className="w-full px-3 py-2 bg-[#21262d] border border-[#30363d] rounded text-sm text-gray-200 placeholder-gray-600 outline-none focus:border-yellow-500/50 font-mono"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1.5">リージョン</label>
+            <input
+              type="text"
+              value={awsRegion}
+              onChange={(e) => setAwsRegion(e.target.value)}
+              placeholder="ap-northeast-1"
+              className="w-full px-3 py-2 bg-[#21262d] border border-[#30363d] rounded text-sm text-gray-200 placeholder-gray-600 outline-none focus:border-yellow-500/50"
+            />
+          </div>
+          <div className="text-xs text-gray-600">バケット: m-s3storage（固定）</div>
         </div>
       </div>
 

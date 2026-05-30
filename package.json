@@ -11,7 +11,13 @@
     "electron:dev": "electron .",
     "vite:dev": "vite"
   },
-  "keywords": ["security", "analysis", "pentesting", "android", "apk"],
+  "keywords": [
+    "security",
+    "analysis",
+    "pentesting",
+    "android",
+    "apk"
+  ],
   "author": "AppSleuth",
   "license": "MIT",
   "devDependencies": {
@@ -34,6 +40,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.2.3",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^6.26.0",
     "recharts": "^2.12.7"
   },
@@ -51,7 +58,9 @@
       {
         "from": "resources/bin",
         "to": "bin",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
